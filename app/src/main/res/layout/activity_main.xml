@@ -8,37 +8,13 @@
     tools:context=".MainActivity">
 
 
-    <Button
-        android:id="@+id/btn_capture"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="拍照"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"/>
-
-    <Button
-        android:id="@+id/btn_start_record"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="启动录制Camera原始图像"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintLeft_toRightOf="@+id/btn_capture"/>
-
-    <Button
-        android:id="@+id/btn_stop_record"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="结束录制Camera原始图像"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintLeft_toRightOf="@+id/btn_start_record"/>
 
     <Button
         android:id="@+id/btn_start_preview"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="显示Camera画面"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintLeft_toRightOf="@+id/btn_stop_record"/>
+        app:layout_constraintTop_toTopOf="parent"/>
 
     <Button
         android:id="@+id/btn_stop_preview"
@@ -61,15 +37,15 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="开始HEVC编码"
-        app:layout_constraintTop_toBottomOf="@+id/btn_capture"
-        app:layout_constraintLeft_toLeftOf="parent"/>
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btn_start_preview"/>
 
     <Button
         android:id="@+id/btn_stop_encode"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="停止HEVC编码"
-        app:layout_constraintTop_toBottomOf="@+id/btn_capture"
+        app:layout_constraintTop_toBottomOf="@+id/btn_stop_preview"
         app:layout_constraintLeft_toRightOf="@+id/btn_start_encode"/>
 
     <SurfaceView
@@ -98,5 +74,14 @@
         app:layout_constraintLeft_toRightOf="@+id/btn_get_camera_param"
         app:layout_constraintTop_toTopOf="@+id/btn_get_camera_param"/>
 
+    <TextView
+        android:id="@+id/tv_ip_detection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="IP Detection Status"
+        android:textSize="16sp"
+        app:layout_constraintTop_toBottomOf="@+id/btn_get_camera_param"
+        app:layout_constraintLeft_toLeftOf="parent"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
