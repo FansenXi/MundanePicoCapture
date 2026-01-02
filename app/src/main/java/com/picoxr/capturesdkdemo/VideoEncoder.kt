@@ -59,7 +59,15 @@ class VideoEncoder {
     
     @Throws(IOException::class)
     fun connectToServer(serverIp: String, serverPort: Int) {
-        // 连接到服务器
+        // 先关闭现有连接
+        try {
+            outputStream?.close()
+            socket?.close()
+        } catch (e: IOException) {
+            Log.e(TAG, "Error closing existing connection: ${e.message}")
+        }
+        
+        // 创建新连接
         socket = Socket(serverIp, serverPort)
         outputStream = socket?.getOutputStream()
         Log.i(TAG, "Connected to server: $serverIp:$serverPort")
@@ -206,7 +214,6 @@ class VideoEncoder {
                     // 发送格式信息到服务器
                     outputStream?.let { os ->
                         try {
-                            // 发送格式信息（简化处理，实际应用中可能需要更复杂的格式协商）
                             val formatBytes = "HEVC".toByteArray(Charsets.UTF_8)
                             os.write(formatBytes)
                             os.flush()

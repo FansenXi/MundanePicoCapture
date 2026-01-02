@@ -1,16 +1,20 @@
 package com.picoxr.capturesdkdemo
 
 import android.Manifest
+import android.app.AlertDialog
+import android.content.DialogInterface
 import android.media.ImageReader
 import android.media.MediaCodec
 import android.os.Bundle
-import android.os.Environment
+
 import android.provider.Settings.Global
+import android.text.InputType
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.picoxr.capturesdkdemo.permissions.PermissionUtils
@@ -18,6 +22,7 @@ import com.pxr.capturelib.PXRCapture
 import com.pxr.capturelib.PXRCaptureCallBack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 
@@ -29,15 +34,15 @@ class MainActivity : AppCompatActivity() {
     private var videoEncoder: VideoEncoder? = null
     private var isEncodingEnabled: Boolean = false
 
-    private lateinit var btnCapture: Button
-    private lateinit var btnStartRecord: Button
-    private lateinit var btnStopRecord: Button
+
+
     private lateinit var btnStartPreview: Button
     private lateinit var btnStopPreview: Button
     private lateinit var btnGetCameraParam:Button
     private lateinit var btnStartEncode: Button
     private lateinit var btnStopEncode: Button
     private lateinit var tvCameraParam:TextView
+    private lateinit var tvIpDetection:TextView
     private lateinit var checkBox:CheckBox
     private lateinit var surfaceView: SurfaceView
 
@@ -49,22 +54,21 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         Log.i(TAG, "onCreate")
         surfaceView = findViewById(R.id.surfaceView)
-        btnCapture = findViewById(R.id.btn_capture)
+
         btnStartPreview = findViewById(R.id.btn_start_preview)
         btnStopPreview = findViewById(R.id.btn_stop_preview)
-        btnStartRecord = findViewById(R.id.btn_start_record)
-        btnStopRecord = findViewById(R.id.btn_stop_record)
+
         btnGetCameraParam = findViewById(R.id.btn_get_camera_param)
         btnStartEncode = findViewById(R.id.btn_start_encode)
         btnStopEncode = findViewById(R.id.btn_stop_encode)
         tvCameraParam = findViewById(R.id.tv_camera_param)
+        tvIpDetection = findViewById(R.id.tv_ip_detection)
         checkBox = findViewById(R.id.check_box)
 
-        btnCapture.setOnClickListener { takePicture() }
+
         btnStartPreview.setOnClickListener { startPreview() }
         btnStopPreview.setOnClickListener { stopPreview() }
-        btnStartRecord.setOnClickListener { startRecord() }
-        btnStopRecord.setOnClickListener { stopRecord() }
+
         btnGetCameraParam.setOnClickListener { getCameraParams() }
         btnStartEncode.setOnClickListener { startEncode() }
         btnStopEncode.setOnClickListener { stopEncode() }
@@ -100,7 +104,6 @@ class MainActivity : AppCompatActivity() {
         })
 
         val permissions = arrayOf(
-            Manifest.permission.RECORD_AUDIO,
             Manifest.permission.CAMERA
         )
         val checkCode: Int = PermissionUtils.checkPermission(this, permissions, true)
@@ -167,7 +170,6 @@ class MainActivity : AppCompatActivity() {
     private fun releaseCamera(){        
         pxrCapture?.run {
             stopPreview()
-            stopRecord()
             reset()
             closeCamera()
             release()
@@ -235,31 +237,9 @@ class MainActivity : AppCompatActivity() {
         tvCameraParam.text = cameraParam
     }
 
-    private fun takePicture(){
-        pxrCapture?.stopPreview()
-        pxrCapture?.stopRecord()
-        val mParentDir = Environment.getExternalStorageDirectory()
-            .absolutePath + MainActivity.PATH_ON_PICTURE_STORAGE
-        val fileName = "DemoPicture-${System.currentTimeMillis()}.jpeg"
-        val filePath = mParentDir + fileName
-        Log.i(TAG, "takePicture filePath: $filePath")
-        pxrCapture?.takePicture(filePath)
-    }
 
-    private fun startRecord(){
-        pxrCapture?.stopRecord()
-        pxrCapture?.stopPreview()
-        val mParentDir = Environment.getExternalStorageDirectory()
-            .absolutePath + PATH_ON_MOVIES_STORAGE
-        val fileName = "DemoPicture-${System.currentTimeMillis()}.mp4"
-        val filePath = mParentDir + fileName
-        Log.i(TAG, "startRecord filePath: $filePath")
-        pxrCapture?.startRecord(filePath)
-    }
 
-    private fun stopRecord(){
-        pxrCapture?.stopRecord()
-    }
+
 
     private fun startPreview(){
         pxrCapture?.startPreview(surfaceView.holder.surface, PXRCapture.PXRCaptureRenderMode.PXRCapture_RenderMode_3D.ordinal, surfaceView.width, surfaceView.height)
@@ -305,32 +285,129 @@ class MainActivity : AppCompatActivity() {
         }
         
         try {
-            // 连接到服务器（这里使用模拟地址，实际应用中需要替换为真实服务器地址）
-            // videoEncoder?.connectToServer("192.168.1.100", 8888)
+            // Auto get USB tethering IP address
+            val usbIp = getUsbTetheringIpAddress()
             
-            // 启动编码
-            videoEncoder?.startEncoding()
+            // Create input dialog to get server IP address
+            val builder = AlertDialog.Builder(this)
+            builder.setTitle("Connect to Server")
+            builder.setMessage("Please enter server IP address:")
             
-            // 获取编码器的输入Surface
-            val encoderSurface = videoEncoder?.getInputSurface()
+            // Set up input field
+            val input = EditText(this)
+            input.inputType = InputType.TYPE_CLASS_TEXT
             
-            if (encoderSurface != null) {
-                // 使用编码器的Surface代替SurfaceView进行预览
-                pxrCapture?.startPreview(encoderSurface, PXRCapture.PXRCaptureRenderMode.PXRCapture_RenderMode_3D.ordinal, VIDEO_WIDTH, VIDEO_HEIGHT)
-                isEncodingEnabled = true
+            // If USB IP is found, auto fill the input field
+            if (usbIp != null) {
+                input.setText(usbIp)
+                input.hint = "e.g: 192.168.1.100 (Auto-filled USB tethering IP)"
+            } else {
+                input.hint = "e.g: 192.168.1.100"
             }
+            
+            builder.setView(input)
+            
+            // Set dialog buttons
+            builder.setPositiveButton("Connect", DialogInterface.OnClickListener { _, _ ->
+                val serverIp = input.text.toString().trim()
+                if (serverIp.isNotEmpty()) {
+                    // Update status on UI thread
+                    runOnUiThread {
+                        tvIpDetection.text = "Connecting to $serverIp:12345..."
+                    }
+                    
+                    // Use coroutine for network connection to avoid blocking UI
+                    GlobalScope.launch(Dispatchers.IO) {
+                        try {
+                            // Connect to server (fixed port 12345)
+                            videoEncoder?.connectToServer(serverIp, 12345)
+                            
+                            // Connection successful, update UI
+                            runOnUiThread {
+                                tvIpDetection.text = "TCP connection successful! Starting data transmission..."
+                            }
+                            
+                            // Start encoding
+                            videoEncoder?.startEncoding()
+                            
+                            // Get encoder input Surface
+                            val encoderSurface = videoEncoder?.getInputSurface()
+                            
+                            if (encoderSurface != null) {
+                                // Use encoder Surface instead of SurfaceView for preview
+                                pxrCapture?.startPreview(encoderSurface, PXRCapture.PXRCaptureRenderMode.PXRCapture_RenderMode_3D.ordinal, VIDEO_WIDTH, VIDEO_HEIGHT)
+                                isEncodingEnabled = true
+                                
+                                runOnUiThread {
+                                    tvIpDetection.text = "Connected to $serverIp:12345, data transmission in progress..."
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to connect or start encoding: ${e.message}")
+                            runOnUiThread {
+                                tvIpDetection.text = "TCP connection failed: ${e.message}"
+                            }
+                        }
+                    }
+                } else {
+                    runOnUiThread {
+                        tvIpDetection.text = "Please enter a valid IP address"
+                    }
+                }
+            })
+            
+            builder.setNegativeButton("Cancel", DialogInterface.OnClickListener { dialog, _ ->
+                dialog.cancel()
+                runOnUiThread {
+                    tvIpDetection.text = "Connection canceled"
+                }
+            })
+            
+            builder.show()
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start encoding: ${e.message}")
+            runOnUiThread {
+                tvIpDetection.text = "Operation failed: ${e.message}"
+            }
         }
+    }
+    
+    /**
+     * Get USB tethering IP address
+     * USB tethering typically uses 192.168.42.x network segment
+     */
+    private fun getUsbTetheringIpAddress(): String? {
+        try {
+            val networkInterfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            while (networkInterfaces.hasMoreElements()) {
+                val networkInterface = networkInterfaces.nextElement()
+                
+                // Check if it's a USB tethering network interface
+                if (networkInterface.name.startsWith("rndis") || networkInterface.name.startsWith("usb")) {
+                    val inetAddresses = networkInterface.inetAddresses
+                    while (inetAddresses.hasMoreElements()) {
+                        val inetAddress = inetAddresses.nextElement()
+                        if (!inetAddress.isLoopbackAddress && inetAddress is java.net.Inet4Address) {
+                            val ipAddress = inetAddress.hostAddress
+                            Log.i(TAG, "Found USB tethering IP: $ipAddress")
+                            return ipAddress
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting USB tethering IP: ${e.message}")
+        }
+        return null
     }
     
     private fun stopEncode() {
         try {
-            // 停止预览
+            // Stop preview
             pxrCapture?.stopPreview()
             
-            // 停止编码
+            // Stop encoding
             videoEncoder?.stopEncoding()
             isEncodingEnabled = false
             
@@ -339,18 +416,43 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.i(TAG, "onDestroy")
+        
+        try {
+            // Stop encoding
+            if (isEncodingEnabled) {
+                stopEncode()
+            }
+            
+            // Release VideoEncoder resources
+            videoEncoder?.release()
+            videoEncoder = null
+            
+            // Release PXRCapture resources
+            if (pxrCapture != null) {
+                pxrCapture?.stopPreview()
+                pxrCapture?.release()
+                pxrCapture = null
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in onDestroy: ${e.message}")
+        }
+    }
+
     companion object {
         const val TAG = "PXRMainActivity"
         const val RECORD_MODE: Int = 0
         const val PREVIEW_MODE: Int = 1
         const val PERFORMANCE_MODE: Int = 2
-        const val VIDEO_WIDTH: Int = 2048
-        const val VIDEO_HEIGHT: Int = 1536
+        const val VIDEO_WIDTH: Int = 4096
+        const val VIDEO_HEIGHT: Int = 2048
         const val VIDEO_H_FOV: Double = 76.35
         const val VIDEO_V_FOV: Double = 61.05
 
-        const val PATH_ON_MOVIES_STORAGE = "/Movies/"
-        const val PATH_ON_PICTURE_STORAGE = "/Pictures/"
+
     }
 
 }
